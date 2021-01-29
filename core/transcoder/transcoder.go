@@ -17,6 +17,8 @@ import (
 
 var _commandExec *exec.Cmd
 
+var codec = Libx264Codec{} //VaapiCodec{}
+
 // Transcoder is a single instance of a video transcoder.
 type Transcoder struct {
 	input                string
@@ -85,7 +87,7 @@ func (t *Transcoder) Stop() {
 func (t *Transcoder) Start() {
 	command := t.getString()
 
-	log.Tracef("Video transcoder started with %d stream variants.", len(t.variants))
+	log.Infof("Video transcoder started using %s with %d stream variants.", codec.Name(), len(t.variants))
 
 	if config.EnableDebugFeatures {
 		log.Println(command)
@@ -101,6 +103,10 @@ func (t *Transcoder) Start() {
 	err = _commandExec.Wait()
 	if t.TranscoderCompleted != nil {
 		t.TranscoderCompleted(err)
+	}
+
+	if err != nil {
+		log.Errorln("transcoding error. look at transcoder.log to help debug. your copy of ffmpeg may not support your selected codec of", codec.Name())
 	}
 }
 
@@ -126,6 +132,7 @@ func (t *Transcoder) getString() string {
 		t.ffmpegPath,
 		"-hide_banner",
 		"-loglevel warning",
+		codec.GlobalFlags(),
 		"-i ", t.input,
 
 		t.getVariantsString(),
@@ -139,8 +146,8 @@ func (t *Transcoder) getString() string {
 		hlsOptionsString,
 
 		// Video settings
-		"-tune", "zerolatency", // Option used for good for fast encoding and low-latency streaming (always includes iframes in each segment)
-		"-pix_fmt", "yuv420p", // Force yuv420p color format
+		codec.ExtraArguments(),
+		"-pix_fmt", codec.PixelFormat(),
 		"-sc_threshold", "0", // Disable scene change detection for creating segments
 
 		// Filenames
@@ -294,8 +301,6 @@ func (v *HLSVariant) getVideoQualityString(t *Transcoder) string {
 		return fmt.Sprintf("-map v:0 -c:v:%d copy", v.index)
 	}
 
-	encoderCodec := "libx264"
-
 	// -1 to work around segments being generated slightly larger than expected.
 	// https://trac.ffmpeg.org/ticket/6915?replyto=58#comment:57
 	gop := (t.segmentLengthSeconds * v.framerate) - 1
@@ -310,14 +315,14 @@ func (v *HLSVariant) getVideoQualityString(t *Transcoder) string {
 
 	cmd := []string{
 		"-map v:0",
-		fmt.Sprintf("-c:v:%d %s", v.index, encoderCodec),      // Video codec used for this variant
+		fmt.Sprintf("-c:v:%d %s", v.index, codec.Name()),      // Video codec used for this variant
 		fmt.Sprintf("-b:v:%d %dk", v.index, v.videoBitrate),   // The average bitrate for this variant
 		fmt.Sprintf("-maxrate:v:%d %dk", v.index, maxBitrate), // The max bitrate allowed for this variant
 		fmt.Sprintf("-bufsize:v:%d %dk", v.index, bufferSize), // How often the encoder checks the bitrate in order to meet average/max values
 		fmt.Sprintf("-g:v:%d %d", v.index, gop),               // How often i-frames are encoded into the segments
 		fmt.Sprintf("-profile:v:%d %s", v.index, "high"),      // Encoding profile
 		fmt.Sprintf("-r:v:%d %d", v.index, v.framerate),
-		fmt.Sprintf("-x264-params:v:%d \"scenecut=0:open_gop=0:min-keyint=%d:keyint=%d\"", v.index, gop, gop), // How often i-frames are encoded into the segments
+		// fmt.Sprintf("-x264-params:v:%d \"scenecut=0:open_gop=0:min-keyint=%d:keyint=%d\"", v.index, gop, gop), // How often i-frames are encoded into the segments
 	}
 
 	return strings.Join(cmd, " ")
