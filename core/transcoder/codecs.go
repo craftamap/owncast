@@ -28,6 +28,18 @@ func (c *Libx264Codec) ExtraArguments() string {
 	}, " ")
 }
 
+func (c *Libx264Codec) GetPresetForLevel(level int) string {
+	presetMapping := map[int]string{
+		0: "ultrafast",
+		1: "superfast",
+		2: "veryfast",
+		3: "faster",
+		4: "fast",
+	}
+
+	return presetMapping[level]
+}
+
 type OmxCodec struct {
 }
 
@@ -47,6 +59,10 @@ func (c *OmxCodec) ExtraArguments() string {
 	return strings.Join([]string{
 		"-tune", "zerolatency", // Option used for good for fast encoding and low-latency streaming (always includes iframes in each segment)
 	}, " ")
+}
+
+func (c *OmxCodec) GetPresetForLevel(level int) string {
+	return "superhigh"
 }
 
 type VaapiCodec struct {
@@ -74,6 +90,19 @@ func (c *VaapiCodec) ExtraArguments() string {
 	return ""
 }
 
+func (c *VaapiCodec) GetPresetForLevel(level int) string {
+	presetMapping := map[int]string{
+		0: "ultrafast",
+		1: "superfast",
+		2: "veryfast",
+		3: "faster",
+		4: "fast",
+	}
+
+	return presetMapping[level]
+
+}
+
 type NvencCodec struct {
 }
 
@@ -97,11 +126,24 @@ func (c *NvencCodec) ExtraArguments() string {
 	return ""
 }
 
+func (c *NvencCodec) GetPresetForLevel(level int) string {
+	presetMapping := map[int]string{
+		0: "0",
+		1: "1",
+		2: "2",
+		3: "3",
+		4: "4",
+	}
+
+	return presetMapping[level]
+}
+
 type Codec interface {
 	Name() string
 	GlobalFlags() string
 	PixelFormat() string
 	ExtraArguments() string
+	GetPresetForLevel(int) string
 }
 
 func GetCodecs(ffmpegPath string) []string {

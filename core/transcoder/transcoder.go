@@ -247,7 +247,7 @@ func (v *HLSVariant) getVariantString(t *Transcoder) string {
 	}
 
 	if v.encoderPreset != "" {
-		variantEncoderCommands = append(variantEncoderCommands, fmt.Sprintf("-preset %s", v.encoderPreset))
+		variantEncoderCommands = append(variantEncoderCommands, fmt.Sprintf("-preset %s", codec.GetPresetForLevel(3)))
 	}
 
 	return strings.Join(variantEncoderCommands, " ")
